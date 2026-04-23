@@ -147,6 +147,7 @@ open-image --api-key sk-... --prompt "..."
 | `--extra` | `{}` | JSON object forwarded to `images.generate` |
 | `--out-dir` | `./output` | Where to save PNGs (auto-created) |
 | `--api-key` | `$OPENAI_API_KEY` | Override via flag if not in env |
+| `--keep` | `50` | Keep only N newest PNGs in `--out-dir` after save; `0` disables pruning |
 
 ---
 

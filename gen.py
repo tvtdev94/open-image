@@ -25,6 +25,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--extra", default="{}", help="JSON dict of extra API params forwarded to images.generate.")
     p.add_argument("--out-dir", default="./output", help="Output directory (default: ./output).")
     p.add_argument("--api-key", help="OpenAI API key; falls back to $OPENAI_API_KEY.")
+    p.add_argument("--keep", type=int, default=50, help="Keep only N newest PNGs in --out-dir after save; 0 disables pruning (default: 50).")
     return p.parse_args()
 
 
@@ -84,6 +85,17 @@ def save_images(response, out_dir: Path) -> list[Path]:
     return saved
 
 
+def prune_old_images(out_dir: Path, keep: int) -> None:
+    if keep <= 0:
+        return
+    pngs = sorted(out_dir.glob("*.png"), key=lambda p: p.stat().st_mtime, reverse=True)
+    for stale in pngs[keep:]:
+        try:
+            stale.unlink()
+        except OSError:
+            pass
+
+
 def main() -> None:
     args = parse_args()
 
@@ -107,10 +119,13 @@ def main() -> None:
     except Exception as e:
         sys.exit(f"ERROR: API call failed: {e}")
 
+    out_dir = Path(args.out_dir)
     try:
-        paths = save_images(response, Path(args.out_dir))
+        paths = save_images(response, out_dir)
     except PermissionError as e:
         sys.exit(f"ERROR: Cannot write to output dir: {e}")
+
+    prune_old_images(out_dir, args.keep)
 
     for p in paths:
         print(p)
