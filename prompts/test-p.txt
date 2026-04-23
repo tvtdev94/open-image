@@ -1,0 +1,36 @@
+A system architecture diagram for "dbread" — a Python MCP server that
+  proxies read-only DB queries between AI agents and databases. Aspect ratio
+  16:9, designed for a developer README.
+
+  Layout: three vertical bands left → right.
+    BAND 1 (left, 20%): "AI Clients" — Claude Code terminal icon + generic MCP
+                        client icon, connected via stdio JSON-RPC arrow.
+    BAND 2 (center, 55%): the "dbread process" as a rounded slate card
+                          containing 5 stacked modules with clear labels:
+                            • server.py     — MCP stdio entry
+                            • tools.py      — Guard → Limit → Rate → Exec → Audit
+                            • sql_guard.py  — sqlglot AST validator
+                            • rate_limiter  — token bucket
+                            • audit.py      — JSONL fsync + rotate
+                          Plus a side compartment "mongo/" with its own
+                          client/guard/schema/tools sub-boxes.
+    BAND 3 (right, 25%): database targets — PostgreSQL elephant silhouette,
+                         MySQL dolphin, MSSQL cube, Oracle, SQLite, DuckDB
+                         duck, ClickHouse, MongoDB leaf — each a small
+                         labeled chip with its brand color.
+
+  Arrows: a bold horizontal data flow line crosses all three bands, forking
+  inside the dbread card to show the pipeline sequence. A secondary dashed
+  line loops from tools.py down to audit.jsonl on disk (icon of a file with
+  a rotating ring indicating log rotation).
+
+  Style: Stripe docs + Excalidraw hybrid — flat vector, soft shadows,
+  2px strokes, rounded corners, monospace code labels inside each module box,
+  Inter for titles. Background dark slate (#0f172a) with a faint dot grid.
+  Accent palette: Postgres blue #3775a9, MCP purple #6e56cf, success green
+  #22c55e, warning amber #d97706.
+
+  Every box and arrow must remain legible at GitHub's rendered width (~830px).
+  No emojis. No clipart databases. Fully original vector look.
+
+  --ar 16:9 --style raw --q 2 --v 6

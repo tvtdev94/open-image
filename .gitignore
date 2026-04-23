@@ -1,0 +1,12 @@
+.env
+output/
+custom-out/
+__pycache__/
+*.pyc
+.venv/
+prompts/*.local.txt
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
