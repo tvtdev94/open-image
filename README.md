@@ -1,75 +1,87 @@
-# open-image
+<p align="center">
+  <img src="assets/logo-mark.png" alt="open-image" width="140" />
+</p>
 
-Tiny CLI for OpenAI image generation. Prompt in, PNG out. Model-agnostic.
+<h1 align="center">open-image</h1>
 
-- **One file, ~120 lines.** Pure stdlib + `openai` SDK.
-- **Model-agnostic.** `--model` is a flag, not a constant. Swap `dall-e-3` → `gpt-image-2` → whatever ships next without editing code.
-- **`--extra` escape hatch.** Forward any API parameter as JSON (`size`, `quality`, `style`, `n`, `response_format`, …). No client-side validation gets in your way.
-- **Four prompt inputs.** `--prompt`, `--prompt-file`, stdin pipe, or `$EDITOR` fallback.
+<p align="center">
+  <b>Tiny CLI for OpenAI image generation. Prompt in, PNG out. Model-agnostic.</b>
+</p>
 
-## Samples
+<p align="center">
+  <a href="https://pypi.org/project/open-image/"><img src="https://img.shields.io/pypi/v/open-image.svg?color=22d3ee&label=pypi" alt="PyPI version" /></a>
+  <a href="https://pypi.org/project/open-image/"><img src="https://img.shields.io/pypi/pyversions/open-image.svg?color=8b5cf6" alt="Python versions" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-22c55e.svg" alt="MIT license" /></a>
+  <a href="https://github.com/tvtdev94/open-image/stargazers"><img src="https://img.shields.io/github/stars/tvtdev94/open-image?style=flat&color=d97706" alt="GitHub stars" /></a>
+</p>
 
-Generated with `dall-e-3` at `quality=hd`:
+<p align="center">
+  <img src="assets/hero.png" alt="open-image hero" width="100%" />
+</p>
 
-| `assets/sample-bee-lotus.png` | `assets/sample-cyberpunk-market.png` |
-|---|---|
-| ![bee on lotus](assets/sample-bee-lotus.png) | ![cyberpunk hanoi](assets/sample-cyberpunk-market.png) |
+---
 
-## Install
+## Why another CLI?
+
+Every serious image-gen workflow needs a **stable, forgettable command** — one you can pipe into, script around, and re-run six months later without rewriting. The official SDKs are fine for apps; they're heavy for "just give me a PNG."
+
+`open-image` is **one file, ~120 lines, pure stdlib + `openai`**. No framework, no config, no lock-in to a specific model.
 
 ```bash
 pip install open-image
-```
-
-Or from source:
-
-```bash
-git clone https://github.com/tvtdev94/open-image
-cd open-image
-pip install -e .
-```
-
-## Setup
-
-Set your OpenAI API key (needs image-generation credit):
-
-```bash
 export OPENAI_API_KEY=sk-...
-# or pass --api-key on every call
+open-image --prompt "a red fox in a snowy forest, cinematic"
+# → /abs/path/output/20260423-223012-a1b2c3d4.png
 ```
 
-## Usage
+That's it.
+
+---
+
+## Features
+
+### Four ways to feed a prompt
+
+<p align="center">
+  <img src="assets/feature-four-inputs.png" alt="four input methods" width="85%" />
+</p>
+
+| Method | Example |
+|---|---|
+| **Inline** | `open-image --prompt "a red fox in snow"` |
+| **File**   | `open-image --prompt-file prompts/scene.txt` |
+| **Stdin**  | `echo "a blue cat" \| open-image` |
+| **Editor** | `open-image` (no args in a TTY → opens `$EDITOR`, or `notepad` on Windows, `vi` otherwise) |
+
+The resolver picks them in that order. Lines starting with `#` in the editor buffer are stripped — write notes to yourself without polluting the prompt.
+
+---
+
+### Model-agnostic by design
+
+<p align="center">
+  <img src="assets/feature-model-agnostic.png" alt="model-agnostic design" width="85%" />
+</p>
+
+`--model` is a **flag, not a constant**. The day a new image model ships, swap the string — no code change, no version bump, no fork:
 
 ```bash
-# 1. Inline prompt
-open-image --prompt "a red fox in a snowy forest, cinematic"
-
-# 2. Prompt from file
-open-image --prompt-file prompts/scene.txt
-
-# 3. Pipe from stdin
-echo "a blue cat reading a book" | open-image
-
-# 4. No args in a TTY — opens $EDITOR (notepad on Windows, vi otherwise)
-open-image
+open-image --model dall-e-3      --prompt "..."
+open-image --model gpt-image-2   --prompt "..."   # when your org is verified
+open-image --model future-model  --prompt "..."   # whenever it arrives
 ```
 
-Output: absolute path of the PNG(s) printed to stdout, one per line. Default save directory: `./output/{YYYYMMDD-HHMMSS}-{uuid8}.png`.
+Default is `gpt-image-2`. Change per call, or `alias open-image='open-image --model dall-e-3'` in your shell if you prefer a different default.
 
-## Flags
+---
 
-| Flag | Default | Purpose |
-|---|---|---|
-| `--prompt` | — | Inline prompt text |
-| `--prompt-file` | — | Path to a file containing the prompt |
-| `--model` | `gpt-image-2` | Any OpenAI image model (`dall-e-3`, `dall-e-2`, `gpt-image-1`, …) |
-| `--extra` | `{}` | JSON dict forwarded to `images.generate` |
-| `--out-dir` | `./output` | Where to save PNGs (auto-created) |
-| `--api-key` | `$OPENAI_API_KEY` | Override via flag if not in env |
+### `--extra` escape hatch
 
-## Forwarding model-specific params
+<p align="center">
+  <img src="assets/feature-extra-param.png" alt="extra param forwarding" width="85%" />
+</p>
 
-Any keyword the API accepts, `--extra` forwards:
+Any keyword the API accepts, `--extra` forwards verbatim to `openai.images.generate(**params)`. Zero client-side validation — the API is the source of truth:
 
 ```bash
 open-image \
@@ -80,24 +92,132 @@ open-image \
 open-image \
   --model dall-e-2 \
   --extra '{"size":"512x512","n":4}' \
-  --prompt "abstract watercolor"
+  --prompt "abstract watercolor studies"
 ```
 
-The CLI does not validate these — the API does. If a parameter is wrong the API error surfaces verbatim, which is exactly what you want for debugging.
+If you pass a wrong key, the API error surfaces verbatim — exactly what you want for debugging. No wrapper in the way.
+
+---
+
+## Install
+
+### From PyPI (recommended)
+
+```bash
+pip install open-image
+```
+
+### With pipx (isolated global command)
+
+```bash
+pipx install open-image
+```
+
+### From source
+
+```bash
+git clone https://github.com/tvtdev94/open-image
+cd open-image
+pip install -e .
+```
+
+---
+
+## Setup
+
+Set your OpenAI API key (must have image-generation credit):
+
+```bash
+# Option A — environment variable (recommended)
+export OPENAI_API_KEY=sk-...
+
+# Option B — per-call flag
+open-image --api-key sk-... --prompt "..."
+```
+
+---
+
+## Flags
+
+| Flag | Default | Purpose |
+|---|---|---|
+| `--prompt` | — | Inline prompt text |
+| `--prompt-file` | — | Path to a file containing the prompt |
+| `--model` | `gpt-image-2` | Any OpenAI image model (`dall-e-3`, `dall-e-2`, `gpt-image-1`, …) |
+| `--extra` | `{}` | JSON object forwarded to `images.generate` |
+| `--out-dir` | `./output` | Where to save PNGs (auto-created) |
+| `--api-key` | `$OPENAI_API_KEY` | Override via flag if not in env |
+
+---
+
+## Output
+
+```
+./output/{YYYYMMDD-HHMMSS}-{uuid8}.png
+```
+
+One PNG per `response.data` item (so `n=4` → four files). Absolute path(s) printed to stdout, one per line — friendly to `xargs`, `fzf`, `wl-copy`, whatever you pipe into.
+
+```bash
+open-image --prompt "a corgi" | tee -a log.txt
+open-image --prompt "a corgi" | head -n1 | xargs -I{} open {}    # macOS preview
+```
+
+---
+
+## Gallery
+
+All generated by `open-image` at `dall-e-3 / quality=hd`:
+
+<p align="center">
+  <img src="assets/sample-triptych.png" alt="sample gallery" width="100%" />
+</p>
+
+<table>
+  <tr>
+    <td><img src="assets/sample-bee-lotus.png" alt="bee on a lotus at sunrise" /></td>
+    <td><img src="assets/sample-cyberpunk-market.png" alt="cyberpunk Hanoi night market" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub><i>A close-up cinematic macro of a bee hovering over a lotus at sunrise.</i></sub></td>
+    <td align="center"><sub><i>A bustling night market in a cyberpunk Hanoi alleyway.</i></sub></td>
+  </tr>
+</table>
+
+---
 
 ## Error handling
 
-- No API key → exit with actionable message.
-- `--extra` not valid JSON → exit with parser error.
-- Empty prompt → exit.
-- API failure (auth, model access, invalid params) → exit with the API error string.
+Every error path exits with a clear, actionable message:
+
+- **No API key** → `ERROR: No API key. Set OPENAI_API_KEY env or pass --api-key.`
+- **`--extra` not valid JSON** → parser error with column offset
+- **Empty prompt** → `ERROR: Empty prompt.`
+- **API failure** (auth, model access, invalid params) → API error string forwarded verbatim
+- **Un-writable `--out-dir`** → `PermissionError` surfaced with the path
+
+---
 
 ## Model notes
 
-- **`gpt-image-2`** requires an organization verification step on the OpenAI dashboard. First call returns 403 until verified.
-- **`dall-e-3`** works out of the box. Always set `response_format: "b64_json"` in `--extra` if you want to avoid a short-lived URL fetch; the tool handles both, but b64 is more robust.
-- **`dall-e-2`** supports `n > 1` and smaller sizes, ideal for batch ideation.
+- **`gpt-image-2`** requires an organization verification step on the OpenAI dashboard. First call returns `403` until you verify.
+- **`dall-e-3`** works out of the box. It returns a URL by default; always pass `"response_format": "b64_json"` in `--extra` for deterministic offline storage.
+- **`dall-e-2`** supports `n > 1` and smaller sizes — ideal for batch ideation.
+
+---
+
+## Philosophy
+
+Three principles, one file:
+
+- **YAGNI** — no MCP server, no HTTP wrapper, no plugin system. If your agent has a shell, it can use this.
+- **KISS** — argparse + stdlib + one SDK call. Zero abstractions between you and the API.
+- **DRY** — `--extra` means the tool never needs a new flag per new API param.
+
+The whole tool fits in your head. When a future model adds a parameter, you already know how to use it.
+
+---
 
 ## License
 
-MIT © 2026 tvtdev94
+MIT © 2026 [tvtdev94](https://github.com/tvtdev94)
