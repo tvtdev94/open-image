@@ -60,6 +60,9 @@ open-image --model gpt-image-2 --extra '{"size":"1024x1024","quality":"high"}' -
 # Use gpt-image-1 with transparency / output_format
 open-image --model gpt-image-1 --extra '{"output_format":"png","transparency":true}' --prompt "a minimalist cat icon"
 
+# Custom filename slug (otherwise auto-derived from prompt)
+open-image --prompt "a red fox in snow" --name "fox-portrait"
+
 # List known models with notes
 open-image --list-models
 ```
@@ -70,7 +73,8 @@ Run `open-image --list-models` for the current list with notes. The CLI is model
 
 ## Output
 
-- PNGs saved to `./output/{YYYYMMDD-HHMMSS}-{uuid8}.png` (override with `--out-dir`)
+- PNGs saved to `./output/{YYYYMMDD-HHMMSS}-{slug}-{uuid8}.png` where `{slug}` is auto-derived from the prompt (kebab-case, ASCII-folded, max 40 chars). Pass `--name "my-slug"` to override.
+- Override directory with `--out-dir`
 - Absolute paths printed to stdout, one per line — pipe-friendly
 - Old PNGs auto-pruned (keeps newest 50; tweak with `--keep N`, disable with `--keep 0`)
 
@@ -92,7 +96,7 @@ Run `open-image --list-models` for the current list with notes. The CLI is model
 
 1. For prompts >200 chars, write to a temp file and use `--prompt-file` (avoids shell escaping)
 2. Capture stdout to get image paths: `path=$(open-image --prompt "..." | head -1)`
-3. Use `--out-dir ./task-XXX/` to keep per-task outputs separate
+3. Use `--out-dir ./task-XXX/` to keep per-task outputs separate; pass `--name <slug>` for predictable filenames when scripting
 4. For deterministic offline storage with `dall-e-3`, pass `--extra '{"response_format":"b64_json"}'`
 5. Check exit code — non-zero means generation failed
 """

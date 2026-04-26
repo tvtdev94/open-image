@@ -4,9 +4,11 @@ import argparse
 import base64
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
+import unicodedata
 import urllib.request
 import uuid
 from datetime import datetime
@@ -49,6 +51,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--out-dir", default="./output", help="Output directory (default: ./output).")
     p.add_argument("--api-key", help="OpenAI API key; falls back to $OPENAI_API_KEY.")
     p.add_argument("--keep", type=int, default=50, help="Keep only N newest PNGs in --out-dir after save; 0 disables pruning (default: 50).")
+    p.add_argument("--name", help="Custom slug for output filename. Overrides auto-derived slug from prompt.")
     p.add_argument("--list-models", action="store_true", help="List known OpenAI image models with notes, then exit.")
     p.add_argument("--install-skill", action="store_true", help="Re-install Claude Code skill at ~/.claude/skills/open-image/ (overwrites).")
     return p.parse_args()
@@ -63,6 +66,45 @@ def print_models_table() -> None:
         print(f"{name.ljust(width)}{notes}")
     print()
     print("Note: --model accepts any string. Unknown models forwarded to API as-is.")
+
+
+# Vietnamese horn/stroke letters lack NFKD decompositions, so a plain
+# ASCII fold drops them entirely. Map them to ASCII before normalizing.
+_VIETNAMESE_FOLD = str.maketrans({
+    "đ": "d", "Đ": "D",
+    "ơ": "o", "Ơ": "O",
+    "ư": "u", "Ư": "U",
+})
+
+
+def slugify(text: str, max_len: int = 40) -> str:
+    """Derive a kebab-case ASCII slug from text for use in filenames.
+
+    Strips diacritics (NFKD ASCII fold + manual Vietnamese fold), lowercases,
+    drops non-alphanumeric characters, joins whitespace-separated words with
+    hyphens up to max_len *without splitting mid-word*. Falls back to a
+    truncated single word if the only word exceeds max_len, or to 'image'
+    if the result is empty (e.g., emoji-only or all-non-ASCII input).
+    """
+    decomposed = unicodedata.normalize("NFKD", text).translate(_VIETNAMESE_FOLD)
+    folded = decomposed.encode("ascii", "ignore").decode()
+    cleaned = re.sub(r"[^a-z0-9\s-]", "", folded.lower())
+    words = cleaned.split()
+    if not words:
+        return "image"
+    out: list[str] = []
+    used = 0
+    for word in words:
+        # +1 accounts for the hyphen separator (not added before the first word).
+        cost = len(word) + (1 if out else 0)
+        if used + cost > max_len:
+            if not out:
+                # Single word longer than max_len → hard-truncate to fit.
+                return word[:max_len]
+            break
+        out.append(word)
+        used += cost
+    return "-".join(out) or "image"
 
 
 def open_editor_for_prompt() -> str:
@@ -101,13 +143,13 @@ def resolve_api_key(args: argparse.Namespace) -> str:
     return key
 
 
-def save_images(response, out_dir: Path) -> list[Path]:
+def save_images(response, out_dir: Path, slug: str) -> list[Path]:
     out_dir.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     saved: list[Path] = []
     for item in response.data:
         uid = uuid.uuid4().hex[:8]
-        fpath = out_dir / f"{timestamp}-{uid}.png"
+        fpath = out_dir / f"{timestamp}-{slug}-{uid}.png"
         b64 = getattr(item, "b64_json", None)
         url = getattr(item, "url", None)
         if b64:
@@ -166,9 +208,10 @@ def main() -> None:
     except Exception as e:
         sys.exit(f"ERROR: API call failed: {e}")
 
+    slug = slugify(args.name) if args.name else slugify(prompt)
     out_dir = Path(args.out_dir)
     try:
-        paths = save_images(response, out_dir)
+        paths = save_images(response, out_dir, slug)
     except PermissionError as e:
         sys.exit(f"ERROR: Cannot write to output dir: {e}")
 

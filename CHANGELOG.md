@@ -3,6 +3,20 @@
 All notable changes to `open-image` are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versions follow [SemVer](https://semver.org/).
 
+## [0.4.0] — 2026-04-26
+
+### Added
+- **Human-readable filenames** — output now includes a slug auto-derived from the prompt: `{YYYYMMDD-HHMMSS}-{slug}-{uuid8}.png` (was `{YYYYMMDD-HHMMSS}-{uuid8}.png`).
+- `--name <slug>` flag — override the auto-derived slug with a custom one. Useful when scripting or when the prompt slug isn't memorable.
+- `slugify()` helper — kebab-case ASCII fold with proper Vietnamese support (đ/Đ, ơ/Ơ, ư/Ư mapped before NFKD), emoji/non-ASCII stripped, hard-truncate at 40 chars on word boundary, `image` fallback for empty results.
+- 14 new slugify tests covering English, Vietnamese, French diacritics, emoji, edge cases.
+
+### Changed
+- `save_images()` signature — now takes a `slug` argument. Internal change; CLI behavior identical when `--name` is omitted (slug auto-derived from prompt).
+
+### Migration
+- Filenames produced by older versions (`{date}-{uuid}.png`) remain as-is. New images use the new pattern.
+
 ## [0.3.4] — 2026-04-26
 
 ### Changed

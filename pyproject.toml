@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "open-image"
-version = "0.3.4"
+version = "0.4.0"
 description = "Tiny CLI for OpenAI image generation. Prompt in, PNG out. Model-agnostic."
 readme = "README.md"
 license = "MIT"

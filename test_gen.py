@@ -26,6 +26,28 @@ def claude_home(fake_home):
     return fake_home
 
 
+# ---------- slugify ----------
+
+@pytest.mark.parametrize("text, expected", [
+    ("a red fox in snowy forest", "a-red-fox-in-snowy-forest"),
+    ("Hello, World!", "hello-world"),
+    ("  multi  spaces  ", "multi-spaces"),
+    ("ALL CAPS", "all-caps"),
+    ("café résumé", "cafe-resume"),
+    ("con cáo đỏ trong tuyết", "con-cao-do-trong-tuyet"),
+    ("Đường phố Sài Gòn", "duong-pho-sai-gon"),
+    ("hổ mang chúa", "ho-mang-chua"),
+    ("fox-painting (v2)", "fox-painting-v2"),
+    ("", "image"),
+    ("   ", "image"),
+    ("🦊", "image"),
+    ("a" * 60, "a" * 40),
+    ("one two three four five six seven eight nine ten eleven", "one-two-three-four-five-six-seven-eight"),
+])
+def test_slugify(text, expected):
+    assert gen.slugify(text) == expected
+
+
 # ---------- KNOWN_MODELS ----------
 
 def test_known_models_has_required_keys():

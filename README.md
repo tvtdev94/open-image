@@ -148,6 +148,7 @@ open-image --api-key sk-... --prompt "..."
 | `--out-dir` | `./output` | Where to save PNGs (auto-created) |
 | `--api-key` | `$OPENAI_API_KEY` | Override via flag if not in env |
 | `--keep` | `50` | Keep only N newest PNGs in `--out-dir` after save; `0` disables pruning |
+| `--name` | auto-derived from prompt | Custom slug for output filename (kebab-case, ASCII) |
 | `--list-models` | — | List known OpenAI image models with notes, then exit |
 | `--install-skill` | — | Re-install Claude Code skill at `~/.claude/skills/open-image/` (overwrites) |
 
@@ -156,12 +157,20 @@ open-image --api-key sk-... --prompt "..."
 ## Output
 
 ```
-./output/{YYYYMMDD-HHMMSS}-{uuid8}.png
+./output/{YYYYMMDD-HHMMSS}-{slug}-{uuid8}.png
 ```
+
+`{slug}` is auto-derived from the prompt (kebab-case, ASCII-folded, max 40 chars — handles diacritics, Vietnamese horn/stroke letters, emoji-stripped, falls back to `image`). Override with `--name "my-slug"`.
 
 One PNG per `response.data` item (so `n=4` → four files). Absolute path(s) printed to stdout, one per line — friendly to `xargs`, `fzf`, `wl-copy`, whatever you pipe into.
 
 ```bash
+open-image --prompt "a red fox in snowy forest"
+# → ./output/20260426-183246-a-red-fox-in-snowy-forest-a1b2c3d4.png
+
+open-image --prompt "anything" --name "hero-shot"
+# → ./output/20260426-183246-hero-shot-a1b2c3d4.png
+
 open-image --prompt "a corgi" | tee -a log.txt
 open-image --prompt "a corgi" | head -n1 | xargs -I{} open {}    # macOS preview
 ```
