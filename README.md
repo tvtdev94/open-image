@@ -228,6 +228,10 @@ If you use [Claude Code](https://claude.com/claude-code), `open-image` ships a C
 
 Once installed, Claude Code knows when to call `open-image`, which models exist, how `--extra` works, and how to capture the stdout paths. If you don't use Claude Code, nothing happens — the auto-install gracefully no-ops when `~/.claude/` is absent.
 
+#### How it works (transparency)
+
+`open-image` ships a tiny `.pth` file to your Python `site-packages/` so the skill is synced on every Python startup (idempotent — only writes when content changes). Cost: a couple of `stat()` calls per Python startup, sub-millisecond. Removing the package via `pip uninstall open-image` removes the `.pth` and stops the sync.
+
 ---
 
 ## Philosophy
