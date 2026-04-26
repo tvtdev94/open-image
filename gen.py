@@ -15,6 +15,96 @@ from pathlib import Path
 from openai import OpenAI
 
 
+# Info-only registry of OpenAI image models known at write time.
+# Powers `--list-models`. Does NOT participate in API call args:
+# `--model` is still forwarded as-is and unknown values are accepted silently
+# so that future models work without a code change.
+KNOWN_MODELS: dict[str, str] = {
+    "gpt-image-2": "Default. Requires org verification on OpenAI dashboard. Returns b64_json.",
+    "gpt-image-1": "Newer GPT image model. Supports input_fidelity, transparency, output_format params.",
+    "dall-e-3":    "n=1 only. Sizes: 1024x1024 | 1792x1024 | 1024x1792. quality: standard|hd. style: vivid|natural. Pass response_format=b64_json via --extra for offline storage.",
+    "dall-e-2":    "n>1 supported. Sizes: 256x256 | 512x512 | 1024x1024.",
+}
+
+
+# Embedded Claude Code skill written to ~/.claude/skills/open-image/SKILL.md
+# on first run (silent) or on demand via `--install-skill` (force overwrite).
+SKILL_MD_TEMPLATE = """\
+---
+name: open-image
+description: Generate PNG images via OpenAI image API. Use when user asks to generate an image, create a picture, draw, make an image, or pipes prompt text. CLI command `open-image` outputs absolute file paths to stdout.
+---
+
+# open-image — OpenAI image generation CLI
+
+Tiny CLI that generates PNGs from text prompts via OpenAI's image API. Installed as the `open-image` shell command.
+
+## When to use
+
+- User asks to generate an image, create a picture, draw, or make an image
+- User has a `.txt` file with a prompt and wants the image
+- User wants batch variations (e.g., 4 images of the same prompt)
+- Any text-to-image workflow on OpenAI models
+
+## When NOT to use
+
+- Image editing or variation of an existing image (this CLI is text-to-image only)
+- Non-OpenAI providers (Gemini, Stability, Flux, MiniMax) — use a different tool
+- Embedding generation, vision analysis, OCR — wrong tool
+
+## Quick reference
+
+```bash
+# Inline prompt (default model: gpt-image-2)
+open-image --prompt "a red fox in snow"
+
+# From file (good for long prompts)
+open-image --prompt-file scene.txt
+
+# Different model
+open-image --model dall-e-3 --prompt "a cyberpunk city at night"
+
+# Forward extra params (size, quality, n, style, response_format)
+open-image --model dall-e-2 --extra '{"size":"512x512","n":4}' --prompt "abstract studies"
+
+# List known models with notes
+open-image --list-models
+```
+
+## Models supported
+
+Run `open-image --list-models` for the current list with notes. The CLI is model-agnostic — `--model` accepts any string and unknown models are forwarded to the API as-is, so new OpenAI image models work without an upgrade.
+
+## Output
+
+- PNGs saved to `./output/{YYYYMMDD-HHMMSS}-{uuid8}.png` (override with `--out-dir`)
+- Absolute paths printed to stdout, one per line — pipe-friendly
+- Old PNGs auto-pruned (keeps newest 50; tweak with `--keep N`, disable with `--keep 0`)
+
+## Auth
+
+- Set `OPENAI_API_KEY` env var (recommended)
+- Or pass `--api-key sk-...` per call
+
+## Common errors
+
+| Error | Fix |
+|---|---|
+| `No API key` | `export OPENAI_API_KEY=sk-...` or pass `--api-key` |
+| `403` on `gpt-image-2` | Verify your org on OpenAI dashboard |
+| `--extra invalid JSON` | Check quoting; use single quotes around the JSON |
+| `Empty prompt` | Pass `--prompt`, `--prompt-file`, or pipe via stdin |
+
+## Best practices for agents
+
+1. For prompts >200 chars, write to a temp file and use `--prompt-file` (avoids shell escaping)
+2. Capture stdout to get image paths: `path=$(open-image --prompt "..." | head -1)`
+3. Use `--out-dir ./task-XXX/` to keep per-task outputs separate
+4. For deterministic offline storage with `dall-e-3`, pass `--extra '{"response_format":"b64_json"}'`
+5. Check exit code — non-zero means generation failed
+"""
+
+
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(
         description="Generate images via OpenAI images API."
@@ -26,7 +116,58 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--out-dir", default="./output", help="Output directory (default: ./output).")
     p.add_argument("--api-key", help="OpenAI API key; falls back to $OPENAI_API_KEY.")
     p.add_argument("--keep", type=int, default=50, help="Keep only N newest PNGs in --out-dir after save; 0 disables pruning (default: 50).")
+    p.add_argument("--list-models", action="store_true", help="List known OpenAI image models with notes, then exit.")
+    p.add_argument("--install-skill", action="store_true", help="Re-install Claude Code skill at ~/.claude/skills/open-image/ (overwrites).")
     return p.parse_args()
+
+
+def print_models_table() -> None:
+    """Print known models with notes in an aligned 2-column table."""
+    width = max(len(name) for name in KNOWN_MODELS) + 2
+    print(f"{'MODEL'.ljust(width)}NOTES")
+    print(f"{'-' * (width - 2)}  {'-' * 60}")
+    for name, notes in KNOWN_MODELS.items():
+        print(f"{name.ljust(width)}{notes}")
+    print()
+    print("Note: --model accepts any string. Unknown models forwarded to API as-is.")
+
+
+def maybe_install_skill_silently() -> None:
+    """Install the Claude Code skill on first run if applicable.
+
+    Skips silently if ~/.claude does not exist (user is not running Claude Code)
+    or the skill file is already present (preserve any user customization).
+    Any I/O error is swallowed — never block image generation.
+    """
+    claude_dir = Path.home() / ".claude"
+    if not claude_dir.exists():
+        return
+    skill_md = claude_dir / "skills" / "open-image" / "SKILL.md"
+    if skill_md.exists():
+        return
+    try:
+        skill_md.parent.mkdir(parents=True, exist_ok=True)
+        skill_md.write_text(SKILL_MD_TEMPLATE, encoding="utf-8")
+    except OSError:
+        pass
+
+
+def reinstall_skill_force() -> None:
+    """Force re-install the Claude Code skill (always overwrites).
+
+    Aborts with a clear error if ~/.claude is missing — this is an
+    explicit action, so failing loudly is correct.
+    """
+    claude_dir = Path.home() / ".claude"
+    if not claude_dir.exists():
+        sys.exit(
+            "ERROR: ~/.claude not found. Install Claude Code first, "
+            "then re-run `open-image --install-skill`."
+        )
+    skill_md = claude_dir / "skills" / "open-image" / "SKILL.md"
+    skill_md.parent.mkdir(parents=True, exist_ok=True)
+    skill_md.write_text(SKILL_MD_TEMPLATE, encoding="utf-8")
+    print(f"Skill installed: {skill_md.resolve()}")
 
 
 def open_editor_for_prompt() -> str:
@@ -97,7 +238,18 @@ def prune_old_images(out_dir: Path, keep: int) -> None:
 
 
 def main() -> None:
+    # First-run skill auto-install (silent, idempotent, never blocks).
+    maybe_install_skill_silently()
+
     args = parse_args()
+
+    if args.list_models:
+        print_models_table()
+        return
+
+    if args.install_skill:
+        reinstall_skill_force()
+        return
 
     prompt = resolve_prompt(args)
     if not prompt:

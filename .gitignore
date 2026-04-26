@@ -10,3 +10,6 @@ prompts/*.local.txt
 dist/
 build/
 *.egg-info/
+
+# Test artifacts
+.pytest_cache/

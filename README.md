@@ -25,7 +25,7 @@
 
 Every serious image-gen workflow needs a **stable, forgettable command** — one you can pipe into, script around, and re-run six months later without rewriting. The official SDKs are fine for apps; they're heavy for "just give me a PNG."
 
-`open-image` is **one file, ~120 lines, pure stdlib + `openai`**. No framework, no config, no lock-in to a specific model.
+`open-image` is **one file, ~290 lines, pure stdlib + `openai`**. No framework, no config, no lock-in to a specific model.
 
 ```bash
 pip install open-image
@@ -148,6 +148,8 @@ open-image --api-key sk-... --prompt "..."
 | `--out-dir` | `./output` | Where to save PNGs (auto-created) |
 | `--api-key` | `$OPENAI_API_KEY` | Override via flag if not in env |
 | `--keep` | `50` | Keep only N newest PNGs in `--out-dir` after save; `0` disables pruning |
+| `--list-models` | — | List known OpenAI image models with notes, then exit |
+| `--install-skill` | — | Re-install Claude Code skill at `~/.claude/skills/open-image/` (overwrites) |
 
 ---
 
@@ -199,11 +201,32 @@ Every error path exits with a clear, actionable message:
 
 ---
 
-## Model notes
+## Models supported
 
-- **`gpt-image-2`** requires an organization verification step on the OpenAI dashboard. First call returns `403` until you verify.
-- **`dall-e-3`** works out of the box. It returns a URL by default; always pass `"response_format": "b64_json"` in `--extra` for deterministic offline storage.
-- **`dall-e-2`** supports `n > 1` and smaller sizes — ideal for batch ideation.
+The CLI is model-agnostic — `--model` accepts any string. These are the models known at write time; pass any future model ID without a code change.
+
+| Model | Notes |
+|---|---|
+| `gpt-image-2` | Default. Requires org verification on OpenAI dashboard. Returns `b64_json`. |
+| `gpt-image-1` | Newer GPT image model. Supports `input_fidelity`, `transparency`, `output_format`. |
+| `dall-e-3` | `n=1` only. Sizes: `1024x1024` / `1792x1024` / `1024x1792`. `quality`: `standard` / `hd`. `style`: `vivid` / `natural`. Pass `response_format=b64_json` via `--extra` for offline storage. |
+| `dall-e-2` | `n>1` supported. Sizes: `256x256` / `512x512` / `1024x1024`. |
+
+Run `open-image --list-models` to print this table at any time.
+
+---
+
+## Claude Code integration
+
+If you use [Claude Code](https://claude.com/claude-code), `open-image` ships a Claude skill that teaches the agent how to use this CLI — no manual prompt setup.
+
+- **Auto-install:** First time you run any `open-image` command, the skill is silently installed at `~/.claude/skills/open-image/SKILL.md` (only if `~/.claude/` exists, never overwrites existing customization).
+- **Re-install / update:** After upgrading the package, refresh the skill content:
+  ```bash
+  open-image --install-skill
+  ```
+
+Once installed, Claude Code knows when to call `open-image`, which models exist, how `--extra` works, and how to capture the stdout paths. If you don't use Claude Code, nothing happens — the auto-install gracefully no-ops when `~/.claude/` is absent.
 
 ---
 
@@ -211,7 +234,7 @@ Every error path exits with a clear, actionable message:
 
 Three principles, one file:
 
-- **YAGNI** — no MCP server, no HTTP wrapper, no plugin system. If your agent has a shell, it can use this.
+- **YAGNI** — no MCP server, no HTTP wrapper, no runtime plugins. The optional Claude Code skill is just markdown — Claude reads it, no daemon, no IPC. If your agent has a shell, it can use this.
 - **KISS** — argparse + stdlib + one SDK call. Zero abstractions between you and the API.
 - **DRY** — `--extra` means the tool never needs a new flag per new API param.
 
