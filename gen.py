@@ -15,6 +15,16 @@ from pathlib import Path
 from openai import OpenAI
 
 
+# CLI version, sourced from installed package metadata so the skill
+# template can stamp the version it ships with. Falls back to "dev"
+# when running from source without a pip install.
+try:
+    from importlib.metadata import version as _pkg_version
+    __version__ = _pkg_version("open-image")
+except Exception:
+    __version__ = "dev"
+
+
 # Info-only registry of OpenAI image models known at write time.
 # Powers `--list-models`. Does NOT participate in API call args:
 # `--model` is still forwarded as-is and unknown values are accepted silently
@@ -27,13 +37,16 @@ KNOWN_MODELS: dict[str, str] = {
 }
 
 
-# Embedded Claude Code skill written to ~/.claude/skills/open-image/SKILL.md
-# on first run (silent) or on demand via `--install-skill` (force overwrite).
+# Embedded Claude Code skill written to ~/.claude/skills/open-image/SKILL.md.
+# Auto-installed on every CLI run (silent, idempotent) — content is sync'd
+# to the installed CLI version so upgrading the package upgrades the skill
+# automatically. The {version} placeholder is filled by _render_skill_md().
 SKILL_MD_TEMPLATE = """\
 ---
 name: open-image
 description: Generate PNG images via OpenAI image API. Use when user asks to generate an image, create a picture, draw, make an image, or pipes prompt text. CLI command `open-image` outputs absolute file paths to stdout.
 ---
+<!-- Auto-installed by open-image CLI v{version}. Sync'd on each run. -->
 
 # open-image — OpenAI image generation CLI
 
@@ -61,11 +74,11 @@ open-image --prompt "a red fox in snow"
 # From file (good for long prompts)
 open-image --prompt-file scene.txt
 
-# Different model
-open-image --model dall-e-3 --prompt "a cyberpunk city at night"
+# Forward extra params on the default model (size, quality)
+open-image --model gpt-image-2 --extra '{"size":"1024x1024","quality":"high"}' --prompt "..."
 
-# Forward extra params (size, quality, n, style, response_format)
-open-image --model dall-e-2 --extra '{"size":"512x512","n":4}' --prompt "abstract studies"
+# Use gpt-image-1 with transparency / output_format
+open-image --model gpt-image-1 --extra '{"output_format":"png","transparency":true}' --prompt "a minimalist cat icon"
 
 # List known models with notes
 open-image --list-models
@@ -132,22 +145,30 @@ def print_models_table() -> None:
     print("Note: --model accepts any string. Unknown models forwarded to API as-is.")
 
 
-def maybe_install_skill_silently() -> None:
-    """Install the Claude Code skill on first run if applicable.
+def _render_skill_md() -> str:
+    """Materialize the skill template with the current CLI version stamp."""
+    return SKILL_MD_TEMPLATE.replace("{version}", __version__)
 
-    Skips silently if ~/.claude does not exist (user is not running Claude Code)
-    or the skill file is already present (preserve any user customization).
-    Any I/O error is swallowed — never block image generation.
+
+def maybe_install_skill_silently() -> None:
+    """Sync the Claude Code skill on every CLI run (silent, idempotent).
+
+    No-ops if ~/.claude is absent (user is not running Claude Code) or if
+    the on-disk content already matches the desired template (already in
+    sync). Otherwise the skill is rewritten — this means upgrading the
+    package upgrades the skill on the next CLI invocation, with no manual
+    `--install-skill` step. Any I/O error is swallowed.
     """
     claude_dir = Path.home() / ".claude"
     if not claude_dir.exists():
         return
     skill_md = claude_dir / "skills" / "open-image" / "SKILL.md"
-    if skill_md.exists():
-        return
+    desired = _render_skill_md()
     try:
+        if skill_md.exists() and skill_md.read_text(encoding="utf-8") == desired:
+            return
         skill_md.parent.mkdir(parents=True, exist_ok=True)
-        skill_md.write_text(SKILL_MD_TEMPLATE, encoding="utf-8")
+        skill_md.write_text(desired, encoding="utf-8")
     except OSError:
         pass
 
@@ -166,7 +187,7 @@ def reinstall_skill_force() -> None:
         )
     skill_md = claude_dir / "skills" / "open-image" / "SKILL.md"
     skill_md.parent.mkdir(parents=True, exist_ok=True)
-    skill_md.write_text(SKILL_MD_TEMPLATE, encoding="utf-8")
+    skill_md.write_text(_render_skill_md(), encoding="utf-8")
     print(f"Skill installed: {skill_md.resolve()}")
 
 

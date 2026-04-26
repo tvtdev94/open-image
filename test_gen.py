@@ -67,14 +67,35 @@ def test_auto_install_creates_skill_when_claude_exists(claude_home):
     assert "open-image" in content
 
 
-def test_auto_install_preserves_existing_skill(claude_home):
-    """Skill already exists → not overwritten (preserves customization)."""
+def test_auto_install_overwrites_old_content(claude_home):
+    """Old skill content (e.g. from previous CLI version) → overwritten on next run."""
     skill_md = claude_home / ".claude" / "skills" / "open-image" / "SKILL.md"
     skill_md.parent.mkdir(parents=True)
-    custom = "# my custom skill\n"
-    skill_md.write_text(custom, encoding="utf-8")
+    old_content = "# old skill from previous version\n"
+    skill_md.write_text(old_content, encoding="utf-8")
     gen.maybe_install_skill_silently()
-    assert skill_md.read_text(encoding="utf-8") == custom
+    new = skill_md.read_text(encoding="utf-8")
+    assert new != old_content
+    assert new.startswith("---")
+    assert "open-image CLI v" in new  # version stamp present
+
+
+def test_auto_install_idempotent_when_content_matches(claude_home, monkeypatch):
+    """When on-disk content already matches desired template → no rewrite."""
+    skill_md = claude_home / ".claude" / "skills" / "open-image" / "SKILL.md"
+    skill_md.parent.mkdir(parents=True)
+    skill_md.write_text(gen._render_skill_md(), encoding="utf-8")
+
+    write_calls: list[str] = []
+    original_write = Path.write_text
+
+    def track(self, *args, **kwargs):
+        write_calls.append(self.name)
+        return original_write(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "write_text", track)
+    gen.maybe_install_skill_silently()
+    assert "SKILL.md" not in write_calls
 
 
 def test_auto_install_swallows_oserror(claude_home, monkeypatch):
