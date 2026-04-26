@@ -3,6 +3,17 @@
 All notable changes to `open-image` are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versions follow [SemVer](https://semver.org/).
 
+## [0.3.3] — 2026-04-26
+
+### Added
+- `CHANGELOG.md` documenting all releases (this file).
+- GitHub Actions test CI matrix (Linux/macOS/Windows × Python 3.10/3.11/3.12/3.13 = 12 jobs).
+- GitHub Actions release workflow — auto-publishes to PyPI on `v*.*.*` tag push (token via `PYPI_API_TOKEN` secret).
+- README "How it works (transparency)" section explaining the `.pth` mechanism.
+
+### Changed
+- No runtime changes — pure CI/CD + docs infrastructure release.
+
 ## [0.3.2] — 2026-04-26
 
 ### Added
