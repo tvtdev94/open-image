@@ -25,7 +25,7 @@
 
 Every serious image-gen workflow needs a **stable, forgettable command** — one you can pipe into, script around, and re-run six months later without rewriting. The official SDKs are fine for apps; they're heavy for "just give me a PNG."
 
-`open-image` is **one file, ~290 lines, pure stdlib + `openai`**. No framework, no config, no lock-in to a specific model.
+`open-image` is **~340 lines of Python, pure stdlib + `openai`** — one file for the CLI (`gen.py`), two tiny stdlib-only helpers for the Claude Code skill. No framework, no config, no lock-in to a specific model.
 
 ```bash
 pip install open-image
@@ -220,13 +220,11 @@ Run `open-image --list-models` to print this table at any time.
 
 If you use [Claude Code](https://claude.com/claude-code), `open-image` ships a Claude skill that teaches the agent how to use this CLI — no manual prompt setup.
 
-- **Auto-install:** First time you run any `open-image` command, the skill is silently installed at `~/.claude/skills/open-image/SKILL.md` (only if `~/.claude/` exists, never overwrites existing customization).
-- **Re-install / update:** After upgrading the package, refresh the skill content:
-  ```bash
-  open-image --install-skill
-  ```
+- **Zero-step install:** `pip install open-image` is enough. On the next Python startup (any Python invocation on that machine — no CLI required), the skill is silently written to `~/.claude/skills/open-image/SKILL.md`. Skipped entirely if `~/.claude/` doesn't exist.
+- **Auto-update on upgrade:** `pip install -U open-image` → next Python startup → skill content auto-syncs to the new version. No manual step.
+- **Force re-install** (rarely needed, e.g. after editing the skill): `open-image --install-skill`.
 
-Once installed, Claude Code knows when to call `open-image`, which models exist, how `--extra` works, and how to capture the stdout paths. If you don't use Claude Code, nothing happens — the auto-install gracefully no-ops when `~/.claude/` is absent.
+Once installed, Claude Code knows when to call `open-image`, which models exist, how `--extra` works, and how to capture the stdout paths.
 
 #### How it works (transparency)
 
@@ -236,7 +234,7 @@ Once installed, Claude Code knows when to call `open-image`, which models exist,
 
 ## Philosophy
 
-Three principles, one file:
+Three principles:
 
 - **YAGNI** — no MCP server, no HTTP wrapper, no runtime plugins. The optional Claude Code skill is just markdown — Claude reads it, no daemon, no IPC. If your agent has a shell, it can use this.
 - **KISS** — argparse + stdlib + one SDK call. Zero abstractions between you and the API.

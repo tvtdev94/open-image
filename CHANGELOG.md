@@ -3,6 +3,16 @@
 All notable changes to `open-image` are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versions follow [SemVer](https://semver.org/).
 
+## [0.3.4] — 2026-04-26
+
+### Changed
+- README: fix outdated "Claude Code integration" section to describe v0.3.2+ zero-step install behavior (was still describing the v0.3.0/0.3.1 first-CLI-run behavior).
+- README: line count + module structure description updated (`~340 lines` across `gen.py` + 2 stdlib helpers; previously claimed "one file").
+- README: drop "one file" from Philosophy header (now applies to CLI core only).
+
+### Notes
+- Pure docs release. No runtime, packaging, or test changes.
+
 ## [0.3.3] — 2026-04-26
 
 ### Added
