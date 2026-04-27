@@ -1,7 +1,7 @@
 ---
 phase: 2
 title: Update skill template + write unit tests
-status: pending
+status: completed
 priority: high
 effort: 45m
 dependsOn: phase-01
@@ -188,13 +188,13 @@ python -c "from open_image_skill import _render_skill_md; print(_render_skill_md
 
 ## Todo list
 
-- [ ] Update `SKILL_MD_TEMPLATE` with Styles + Aspect ratio sections
-- [ ] Update Quick reference example block
-- [ ] Add `TestApplyStyle` class (3 tests)
-- [ ] Add `TestMergeAspectIntoExtra` class (3 tests)
-- [ ] Add `test_slug_derived_from_original_prompt_not_augmented`
-- [ ] Run `python -m pytest -q test_gen.py` — all pass
-- [ ] Verify rendered SKILL.md contains new sections via stdout check
+- [x] Update `SKILL_MD_TEMPLATE` with Styles + Aspect ratio sections
+- [x] Update Quick reference example block
+- [x] Add `TestApplyStyle` class (3 tests)
+- [x] Add `TestMergeAspectIntoExtra` class (3 tests)
+- [x] Add `test_slug_derived_from_original_prompt_not_augmented`
+- [x] Run `python -m pytest -q test_gen.py` — all pass
+- [x] Verify rendered SKILL.md contains new sections via stdout check
 
 ## Success criteria
 

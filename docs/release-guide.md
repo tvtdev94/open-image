@@ -67,7 +67,7 @@ Total time: ~30 seconds from `gh release create` to PyPI live.
 | `open_image_skill.py` | Skill template + installer (stdlib-only) | When skill content changes |
 | `_open_image_skill_bootstrap.py` | Imports skill module + calls installer | Never |
 | `gen.py` | OpenAI CLI logic + re-exports skill API | When CLI features change |
-| `test_gen.py` | pytest suite (18 tests) | When adding/changing functionality |
+| `test_gen.py` | pytest suite (44 tests) | When adding/changing functionality |
 | `~/.pypirc` | NOT used by pipeline | Can be deleted; only used for local manual upload |
 
 ---

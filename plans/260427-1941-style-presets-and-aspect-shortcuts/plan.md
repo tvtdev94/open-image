@@ -2,7 +2,7 @@
 title: Style Presets + Aspect Shortcuts
 slug: style-presets-and-aspect-shortcuts
 date: 2026-04-27 19:41
-status: pending
+status: completed
 mode: fast
 target_version: v0.5.0
 blockedBy: []
@@ -24,9 +24,9 @@ Thêm `--style <name>` (8 curated prompt presets) + `--portrait/--landscape/--sq
 
 | # | Phase | Status | Files |
 |---|---|---|---|
-| 1 | Implement `--style` + aspect flags in `gen.py` | pending | `gen.py` |
-| 2 | Update skill template + write unit tests | pending | `open_image_skill.py`, `test_gen.py` |
-| 3 | Docs + release v0.5.0 | pending | `README.md`, `CHANGELOG.md`, `pyproject.toml`, `gh release` |
+| 1 | Implement `--style` + aspect flags in `gen.py` | completed | `gen.py` |
+| 2 | Update skill template + write unit tests | completed | `open_image_skill.py`, `test_gen.py` |
+| 3 | Docs + release v0.5.0 | completed | `README.md`, `CHANGELOG.md`, `pyproject.toml`, `gh release` |
 
 ## Key constraints (DO NOT VIOLATE)
 

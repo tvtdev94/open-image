@@ -1,7 +1,7 @@
 ---
 phase: 3
 title: Docs + release v0.5.0
-status: pending
+status: completed
 priority: high
 effort: 30m
 dependsOn: phase-02
@@ -199,18 +199,18 @@ grep -E "## Styles|## Aspect" ~/.claude/skills/open-image/SKILL.md
 
 ## Todo list
 
-- [ ] Bump `pyproject.toml` to `0.5.0`
-- [ ] Prepend `[0.5.0]` entry to `CHANGELOG.md`
-- [ ] Add "Curated styles + aspect shortcuts" section to README
-- [ ] Update README Flags table with 5 new rows
-- [ ] Run `python -m pytest -q` — all pass
-- [ ] Commit with `release: v0.5.0 - ...` message
-- [ ] Push to origin/main
-- [ ] Wait for test.yml CI green (12 jobs)
-- [ ] `gh release create v0.5.0 --target $(git rev-parse HEAD) ...`
-- [ ] Wait for release.yml green
-- [ ] Verify PyPI v0.5.0 live
-- [ ] Verify skill auto-sync on a clean install
+- [x] Bump `pyproject.toml` to `0.5.0`
+- [x] Prepend `[0.5.0]` entry to `CHANGELOG.md`
+- [x] Add "Curated styles + aspect shortcuts" section to README
+- [x] Update README Flags table with 5 new rows
+- [x] Run `python -m pytest -q` — all pass
+- [x] Commit with `release: v0.5.0 - ...` message
+- [x] Push to origin/main
+- [x] Wait for test.yml CI green (12 jobs)
+- [x] `gh release create v0.5.0 --target $(git rev-parse HEAD) ...`
+- [x] Wait for release.yml green
+- [x] Verify PyPI v0.5.0 live
+- [x] Verify skill auto-sync on a clean install
 
 ## Success criteria
 

@@ -2,7 +2,7 @@
 title: OpenAI Image CLI Tool
 slug: openai-image-cli-tool
 date: 2026-04-23 21:48
-status: in-progress
+status: completed
 mode: fast
 blockedBy: []
 blocks: []

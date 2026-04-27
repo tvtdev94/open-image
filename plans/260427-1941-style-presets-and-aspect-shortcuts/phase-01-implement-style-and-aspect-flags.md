@@ -1,7 +1,7 @@
 ---
 phase: 1
 title: Implement --style + aspect flags in gen.py
-status: pending
+status: completed
 priority: high
 effort: 1h
 ---
@@ -178,16 +178,16 @@ slug = slugify(args.name) if args.name else slugify(prompt)  # original prompt
 
 ## Todo list
 
-- [ ] Add `KNOWN_STYLES` + `ASPECT_SIZES` dicts
-- [ ] Implement `apply_style()`
-- [ ] Implement `merge_aspect_into_extra()`
-- [ ] Implement `print_styles_table()`
-- [ ] Update `parse_args()` — 5 new flags
-- [ ] Update `main()` — list-styles handler + style/aspect call sites
-- [ ] Verify slug derives from original prompt (not augmented)
-- [ ] `python -c "import gen; gen.parse_args.__doc__"` — syntax check
-- [ ] Manual smoke: `open-image --list-styles` → table prints
-- [ ] Manual smoke: `open-image --style 3d-render --prompt "a cat"` → image generated, filename uses original slug
+- [x] Add `KNOWN_STYLES` + `ASPECT_SIZES` dicts
+- [x] Implement `apply_style()`
+- [x] Implement `merge_aspect_into_extra()`
+- [x] Implement `print_styles_table()`
+- [x] Update `parse_args()` — 5 new flags
+- [x] Update `main()` — list-styles handler + style/aspect call sites
+- [x] Verify slug derives from original prompt (not augmented)
+- [x] `python -c "import gen; gen.parse_args.__doc__"` — syntax check
+- [x] Manual smoke: `open-image --list-styles` → table prints
+- [x] Manual smoke: `open-image --style 3d-render --prompt "a cat"` → image generated, filename uses original slug
 
 ## Success criteria
 
