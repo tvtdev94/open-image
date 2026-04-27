@@ -63,13 +63,46 @@ open-image --model gpt-image-1 --extra '{"output_format":"png","transparency":tr
 # Custom filename slug (otherwise auto-derived from prompt)
 open-image --prompt "a red fox in snow" --name "fox-portrait"
 
-# List known models with notes
+# Style preset + aspect shortcut (combine freely)
+open-image --style 3d-render --portrait --prompt "a cat astronaut"
+
+# List known models / styles
 open-image --list-models
+open-image --list-styles
 ```
 
 ## Models supported
 
 Run `open-image --list-models` for the current list with notes. The CLI is model-agnostic — `--model` accepts any string and unknown models are forwarded to the API as-is, so new OpenAI image models work without an upgrade.
+
+## Styles
+
+Append a curated style fragment to your prompt with `--style <name>`. Run `open-image --list-styles` to see full fragments.
+
+| Style | Best for |
+|---|---|
+| `3d-render` | Octane / Cinema 4D-look 3D scenes |
+| `anime` | Cel-shaded Japanese animation aesthetic |
+| `watercolor` | Soft watercolor paintings |
+| `cyberpunk` | Neon, rain-slicked, neo-noir sci-fi |
+| `photoreal` | DSLR-style photo realism |
+| `sketch` | Hand-drawn pencil sketches |
+| `oil-painting` | Classical oil painting |
+| `minimalist` | Clean lines, negative space |
+
+Style is **appended** to the user prompt: `--prompt "a cat" --style 3d-render` → API receives `"a cat, 3D render, octane render, hyperrealistic detail, 8k"`. Avoid double-styling (don't combine with prompts that already contain heavy style words).
+
+## Aspect ratio shortcuts
+
+Skip the `--extra` JSON for common sizes:
+
+| Flag | Equivalent | Size |
+|---|---|---|
+| `--portrait` | `--extra '{"size":"1024x1792"}'` | 1024×1792 |
+| `--landscape` | `--extra '{"size":"1792x1024"}'` | 1792×1024 |
+| `--square` | `--extra '{"size":"1024x1024"}'` | 1024×1024 |
+
+Mutually exclusive — pass at most one. If you also pass `--extra '{"size":...}'`, your `--extra` value wins (explicit beats implicit). Note: `dall-e-2` only supports square sizes; non-square aspect flags will surface the API error verbatim.
 
 ## Output
 

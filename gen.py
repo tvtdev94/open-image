@@ -40,6 +40,31 @@ KNOWN_MODELS: dict[str, str] = {
 }
 
 
+# Curated prompt fragments appended to the user prompt via --style.
+# HARD LIMIT 10 entries forever — beyond that, users should reach for
+# --extra or write their own style words directly in the prompt.
+KNOWN_STYLES: dict[str, str] = {
+    "3d-render":    "3D render, octane render, hyperrealistic detail, 8k",
+    "anime":        "anime style, cel-shaded, vibrant colors, Japanese animation",
+    "watercolor":   "watercolor painting, soft edges, paper texture, wet-on-wet",
+    "cyberpunk":    "cyberpunk aesthetic, neon lights, rain-slicked streets, neo-noir sci-fi mood",
+    "photoreal":    "photorealistic, DSLR, 50mm lens, natural lighting, high detail",
+    "sketch":       "pencil sketch, hand-drawn, cross-hatching, white background",
+    "oil-painting": "oil painting, thick brushstrokes, classical composition, Rembrandt lighting",
+    "minimalist":   "minimalist design, clean lines, negative space, single subject focus",
+}
+
+
+# Aspect ratio shortcuts → size string forwarded to the API. Universal across
+# gpt-image-* and dall-e-3. dall-e-2 only supports squares; non-square sizes
+# surface the API error verbatim (consistent with "API is the source of truth").
+ASPECT_SIZES: dict[str, str] = {
+    "portrait":  "1024x1792",
+    "landscape": "1792x1024",
+    "square":    "1024x1024",
+}
+
+
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(
         description="Generate images via OpenAI images API."
@@ -52,8 +77,14 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--api-key", help="OpenAI API key; falls back to $OPENAI_API_KEY.")
     p.add_argument("--keep", type=int, default=50, help="Keep only N newest PNGs in --out-dir after save; 0 disables pruning (default: 50).")
     p.add_argument("--name", help="Custom slug for output filename. Overrides auto-derived slug from prompt.")
+    p.add_argument("--style", help=f"Append a curated style fragment to the prompt. One of: {', '.join(KNOWN_STYLES)}.")
     p.add_argument("--list-models", action="store_true", help="List known OpenAI image models with notes, then exit.")
+    p.add_argument("--list-styles", action="store_true", help="List known styles with full fragments, then exit.")
     p.add_argument("--install-skill", action="store_true", help="Re-install Claude Code skill at ~/.claude/skills/open-image/ (overwrites).")
+    aspect_group = p.add_mutually_exclusive_group()
+    aspect_group.add_argument("--portrait",  action="store_const", dest="aspect", const="portrait",  help="Shortcut for --extra '{\"size\":\"1024x1792\"}'.")
+    aspect_group.add_argument("--landscape", action="store_const", dest="aspect", const="landscape", help="Shortcut for --extra '{\"size\":\"1792x1024\"}'.")
+    aspect_group.add_argument("--square",    action="store_const", dest="aspect", const="square",    help="Shortcut for --extra '{\"size\":\"1024x1024\"}'.")
     return p.parse_args()
 
 
@@ -66,6 +97,34 @@ def print_models_table() -> None:
         print(f"{name.ljust(width)}{notes}")
     print()
     print("Note: --model accepts any string. Unknown models forwarded to API as-is.")
+
+
+def print_styles_table() -> None:
+    """Print known styles with full fragments in an aligned 2-column table."""
+    width = max(len(name) for name in KNOWN_STYLES) + 2
+    print(f"{'STYLE'.ljust(width)}FRAGMENT (appended to prompt)")
+    print(f"{'-' * (width - 2)}  {'-' * 60}")
+    for name, frag in KNOWN_STYLES.items():
+        print(f"{name.ljust(width)}{frag}")
+    print()
+    print("Usage: open-image --style <name> --prompt \"...\"")
+
+
+def apply_style(prompt: str, style: str | None) -> str:
+    """Append a curated style fragment to the prompt. Pass-through when style is None."""
+    if style is None:
+        return prompt
+    fragment = KNOWN_STYLES.get(style)
+    if fragment is None:
+        sys.exit(f"ERROR: Unknown style '{style}'. Run --list-styles to see options.")
+    return f"{prompt}, {fragment}"
+
+
+def merge_aspect_into_extra(extra: dict, aspect: str | None) -> dict:
+    """Inject `size` from an aspect shortcut. User's explicit --extra size always wins."""
+    if aspect and "size" not in extra:
+        extra["size"] = ASPECT_SIZES[aspect]
+    return extra
 
 
 # Vietnamese horn/stroke letters lack NFKD decompositions, so a plain
@@ -184,6 +243,10 @@ def main() -> None:
         print_models_table()
         return
 
+    if args.list_styles:
+        print_styles_table()
+        return
+
     if args.install_skill:
         reinstall_skill_force()
         return
@@ -191,6 +254,9 @@ def main() -> None:
     prompt = resolve_prompt(args)
     if not prompt:
         sys.exit("ERROR: Empty prompt.")
+
+    # Validate --style early so unknown names exit before we even open the API client.
+    augmented_prompt = apply_style(prompt, args.style)
 
     api_key = resolve_api_key(args)
 
@@ -201,13 +267,17 @@ def main() -> None:
     if not isinstance(extra, dict):
         sys.exit("ERROR: --extra must be a JSON object (dict).")
 
+    extra = merge_aspect_into_extra(extra, args.aspect)
+
     client = OpenAI(api_key=api_key, max_retries=2)
 
     try:
-        response = client.images.generate(model=args.model, prompt=prompt, **extra)
+        response = client.images.generate(model=args.model, prompt=augmented_prompt, **extra)
     except Exception as e:
         sys.exit(f"ERROR: API call failed: {e}")
 
+    # Slug derives from the ORIGINAL prompt, never the style-augmented one —
+    # otherwise filenames balloon with "octane-render-hyperrealistic-..." noise.
     slug = slugify(args.name) if args.name else slugify(prompt)
     out_dir = Path(args.out_dir)
     try:

@@ -75,6 +75,30 @@ Default is `gpt-image-2`. Change per call, or `alias open-image='open-image --mo
 
 ---
 
+### Curated styles + aspect shortcuts
+
+Quick prompt modifiers — no need to memorize style fragments or `--extra` JSON for common sizes:
+
+```bash
+# Style preset: appends "3D render, octane render, hyperrealistic detail, 8k" to the prompt
+open-image --style 3d-render --prompt "a cat astronaut"
+
+# Aspect shortcut: equivalent to --extra '{"size":"1024x1792"}'
+open-image --portrait --prompt "a tall waterfall"
+
+# Combine freely — portrait 3D render
+open-image --style 3d-render --portrait --prompt "a cat astronaut"
+
+# Discover what's available
+open-image --list-styles
+```
+
+**8 styles:** `3d-render`, `anime`, `watercolor`, `cyberpunk`, `photoreal`, `sketch`, `oil-painting`, `minimalist`. Hard-capped at 10 forever — for more variety, use `--extra` or write style words directly in your prompt. This isn't a style library.
+
+**3 aspect flags:** `--portrait` (1024×1792), `--landscape` (1792×1024), `--square` (1024×1024). Mutually exclusive. If you also pass `--extra '{"size":...}'`, your `--extra` value wins (explicit beats implicit). Filename slug always derives from the **original** prompt, never the style-augmented one — so filenames stay short and readable.
+
+---
+
 ### `--extra` escape hatch
 
 <p align="center">
@@ -149,6 +173,11 @@ open-image --api-key sk-... --prompt "..."
 | `--api-key` | `$OPENAI_API_KEY` | Override via flag if not in env |
 | `--keep` | `50` | Keep only N newest PNGs in `--out-dir` after save; `0` disables pruning |
 | `--name` | auto-derived from prompt | Custom slug for output filename (kebab-case, ASCII) |
+| `--style` | — | Append a curated prompt fragment (one of 8 — run `--list-styles`) |
+| `--list-styles` | — | List known styles with full fragments, then exit |
+| `--portrait` | — | Shortcut for `--extra '{"size":"1024x1792"}'` (mutually exclusive with `--landscape`/`--square`) |
+| `--landscape` | — | Shortcut for `--extra '{"size":"1792x1024"}'` |
+| `--square` | — | Shortcut for `--extra '{"size":"1024x1024"}'` |
 | `--list-models` | — | List known OpenAI image models with notes, then exit |
 | `--install-skill` | — | Re-install Claude Code skill at `~/.claude/skills/open-image/` (overwrites) |
 

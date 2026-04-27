@@ -3,6 +3,22 @@
 All notable changes to `open-image` are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versions follow [SemVer](https://semver.org/).
 
+## [0.5.0] — 2026-04-27
+
+### Added
+- `--style <name>` flag — append a curated prompt fragment from one of 8 built-in presets: `3d-render`, `anime`, `watercolor`, `cyberpunk`, `photoreal`, `sketch`, `oil-painting`, `minimalist`. Style fragment is appended (not prepended) to the prompt — `--prompt "a cat" --style 3d-render` becomes `"a cat, 3D render, octane render, hyperrealistic detail, 8k"` at the API.
+- `--list-styles` flag — prints all known styles with full fragments, then exits.
+- `--portrait`, `--landscape`, `--square` mutually-exclusive aspect ratio shortcuts (1024×1792 / 1792×1024 / 1024×1024). Equivalent to passing `--extra '{"size":"WxH"}'`. User's explicit `--extra '{"size":...}'` always wins (explicit beats implicit).
+- 11 new pytest cases covering styles, aspect merging, slug invariant, and mutually-exclusive aspect group.
+
+### Changed
+- Filename slug derives from the **original** prompt, not the style-augmented one — `open-image --style 3d-render --prompt "a cat"` saves to `...-a-cat-{uuid}.png`, not `...-a-cat-3d-render-octane-render-hyperrealistic...png`.
+- Claude Code skill template (`SKILL.md`) gains `## Styles` and `## Aspect ratio shortcuts` sections, plus a combined `--style` + `--portrait` example in Quick reference. Auto-syncs on next Python startup after upgrade.
+
+### Notes
+- Hard cap of 10 built-in styles forever — for more variety, use `--extra` or write style words directly in the prompt. The CLI is not a style library.
+- `dall-e-2` only supports square sizes; passing `--portrait`/`--landscape` against it surfaces the API error verbatim (consistent with "API is the source of truth").
+
 ## [0.4.0] — 2026-04-26
 
 ### Added

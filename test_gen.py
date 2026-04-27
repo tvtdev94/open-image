@@ -212,3 +212,85 @@ def test_list_models_via_main_exits_clean(monkeypatch, fake_home, capsys):
     out = capsys.readouterr().out
     for name in gen.KNOWN_MODELS:
         assert name in out
+
+
+# ---------- KNOWN_STYLES + KNOWN_ASPECTS ----------
+
+def test_known_styles_within_hard_limit():
+    """Hard cap of 10 styles forever — see CLAUDE.md / brainstorm doc."""
+    assert len(gen.KNOWN_STYLES) <= 10
+
+
+def test_known_styles_values_are_nonempty_strings():
+    for name, frag in gen.KNOWN_STYLES.items():
+        assert isinstance(frag, str), f"{name} fragment must be str"
+        assert len(frag) > 0, f"{name} fragment must not be empty"
+
+
+def test_aspect_sizes_are_widthxheight_strings():
+    for name, size in gen.ASPECT_SIZES.items():
+        assert "x" in size, f"{name} size must look like WIDTHxHEIGHT"
+
+
+# ---------- apply_style ----------
+
+def test_apply_style_appends_fragment():
+    result = gen.apply_style("a cat", "3d-render")
+    assert result == "a cat, " + gen.KNOWN_STYLES["3d-render"]
+
+
+def test_apply_style_unknown_exits_with_helpful_message():
+    with pytest.raises(SystemExit) as exc:
+        gen.apply_style("a cat", "nonexistent-style")
+    assert "--list-styles" in str(exc.value)
+
+
+def test_apply_style_none_passes_prompt_through():
+    assert gen.apply_style("a cat", None) == "a cat"
+
+
+# ---------- merge_aspect_into_extra ----------
+
+def test_merge_aspect_injects_size_when_extra_has_no_size():
+    result = gen.merge_aspect_into_extra({}, "portrait")
+    assert result["size"] == "1024x1792"
+
+
+def test_merge_aspect_does_not_override_explicit_size():
+    result = gen.merge_aspect_into_extra({"size": "512x512"}, "portrait")
+    assert result["size"] == "512x512"
+
+
+def test_merge_aspect_none_returns_extra_unchanged():
+    result = gen.merge_aspect_into_extra({"quality": "high"}, None)
+    assert result == {"quality": "high"}
+
+
+# ---------- slug invariant when style is applied ----------
+
+def test_slug_derived_from_original_prompt_not_augmented():
+    """Filename slug must use the user's original prompt, not the style-augmented one."""
+    original = "a red fox in snow"
+    augmented = gen.apply_style(original, "3d-render")
+    assert gen.slugify(original) == "a-red-fox-in-snow"
+    # Sanity: the augmented prompt would slug to something noisier.
+    assert gen.slugify(augmented) != gen.slugify(original)
+
+
+# ---------- --list-styles flag ----------
+
+def test_list_styles_via_main_exits_clean(monkeypatch, fake_home, capsys):
+    monkeypatch.setattr(sys, "argv", ["gen.py", "--list-styles"])
+    gen.main()
+    out = capsys.readouterr().out
+    for name in gen.KNOWN_STYLES:
+        assert name in out
+
+
+# ---------- mutually exclusive aspect flags ----------
+
+def test_aspect_flags_are_mutually_exclusive(monkeypatch):
+    monkeypatch.setattr(sys, "argv", ["gen.py", "--prompt", "x", "--portrait", "--landscape"])
+    with pytest.raises(SystemExit) as exc:
+        gen.parse_args()
+    assert exc.value.code != 0
