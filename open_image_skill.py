@@ -41,7 +41,7 @@ Tiny CLI that generates PNGs from text prompts via OpenAI's image API. Installed
 
 ## When NOT to use
 
-- Image editing or variation of an existing image (this CLI is text-to-image only)
+- Variation of an existing image (use OpenAI's variations endpoint directly — not yet wrapped)
 - Non-OpenAI providers (Gemini, Stability, Flux, MiniMax) — use a different tool
 - Embedding generation, vision analysis, OCR — wrong tool
 
@@ -65,6 +65,16 @@ open-image --prompt "a red fox in snow" --name "fox-portrait"
 
 # Style preset + aspect shortcut (combine freely)
 open-image --style 3d-render --portrait --prompt "a cat astronaut"
+
+# Edit an existing image (image-to-image)
+open-image --input-image cat.png --prompt "give the cat a top hat"
+
+# Inpainting with a mask (transparent regions in mask = areas to edit)
+open-image --input-image room.png --mask hole.png --prompt "fill with a window"
+
+# Self-upgrade to latest PyPI release (auto-detects pipx vs pip)
+open-image upgrade
+open-image --upgrade
 
 # List known models / styles
 open-image --list-models
@@ -91,6 +101,31 @@ Append a curated style fragment to your prompt with `--style <name>`. Run `open-
 | `minimalist` | Clean lines, negative space |
 
 Style is **appended** to the user prompt: `--prompt "a cat" --style 3d-render` → API receives `"a cat, 3D render, octane render, hyperrealistic detail, 8k"`. Avoid double-styling (don't combine with prompts that already contain heavy style words).
+
+## Image edit (image-to-image and inpainting)
+
+Pass `--input-image PATH` to route to the `images.edit` endpoint instead of `images.generate`. All other flags (`--style`, aspect shortcuts, `--extra`, `--name`, `--keep`) work identically. Add `--mask PATH` for inpainting — the mask's transparent pixels mark the regions to regenerate.
+
+```bash
+# Image-to-image (edit whole image)
+open-image --input-image cat.png --prompt "give the cat a top hat, photoreal"
+
+# Inpainting (only transparent regions in mask are changed)
+open-image --input-image room.png --mask window-hole.png --prompt "a sunny garden visible through the window"
+```
+
+`--mask` without `--input-image` is rejected (mask is meaningless without the source image). Note: `gpt-image-2` may not support edit yet — pass `--model gpt-image-1` if the API errors. Filename slug still derives from the prompt, never the input filename.
+
+## Self-upgrade
+
+Update `open-image` to the latest PyPI release without leaving the shell:
+
+```bash
+open-image upgrade           # subcommand form
+open-image --upgrade         # flag form (equivalent)
+```
+
+Auto-detects whether the install lives in a pipx environment (runs `pipx upgrade open-image`) or a regular pip env (runs `pip install --upgrade open-image`). Exit code propagates from the underlying tool. PEP 668 (externally-managed env) errors surface verbatim — switch to pipx or a venv if you hit them.
 
 ## Aspect ratio shortcuts
 

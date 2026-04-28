@@ -78,9 +78,12 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--keep", type=int, default=50, help="Keep only N newest PNGs in --out-dir after save; 0 disables pruning (default: 50).")
     p.add_argument("--name", help="Custom slug for output filename. Overrides auto-derived slug from prompt.")
     p.add_argument("--style", help=f"Append a curated style fragment to the prompt. One of: {', '.join(KNOWN_STYLES)}.")
+    p.add_argument("--input-image", help="Path to input image. Routes to images.edit endpoint.")
+    p.add_argument("--mask", help="Path to mask image for inpainting (requires --input-image).")
     p.add_argument("--list-models", action="store_true", help="List known OpenAI image models with notes, then exit.")
     p.add_argument("--list-styles", action="store_true", help="List known styles with full fragments, then exit.")
     p.add_argument("--install-skill", action="store_true", help="Re-install Claude Code skill at ~/.claude/skills/open-image/ (overwrites).")
+    p.add_argument("--upgrade", action="store_true", help="Upgrade open-image to latest PyPI version (auto-detects pipx vs pip).")
     aspect_group = p.add_mutually_exclusive_group()
     aspect_group.add_argument("--portrait",  action="store_const", dest="aspect", const="portrait",  help="Shortcut for --extra '{\"size\":\"1024x1792\"}'.")
     aspect_group.add_argument("--landscape", action="store_const", dest="aspect", const="landscape", help="Shortcut for --extra '{\"size\":\"1792x1024\"}'.")
@@ -233,11 +236,33 @@ def prune_old_images(out_dir: Path, keep: int) -> None:
             pass
 
 
+def upgrade_self() -> None:
+    """Upgrade open-image. Auto-detects pipx vs pip via sys.executable path parts.
+
+    Path-component check (not substring) avoids false positives when the user's
+    project path happens to contain 'pipx' or 'open-image' as a directory name.
+    """
+    parts = {p.lower() for p in Path(sys.executable).resolve().parts}
+    if {"pipx", "venvs", "open-image"}.issubset(parts):
+        cmd = ["pipx", "upgrade", "open-image"]
+    else:
+        cmd = [sys.executable, "-m", "pip", "install", "--upgrade", "open-image"]
+    print(f"$ {' '.join(cmd)}")
+    sys.exit(subprocess.call(cmd))
+
+
 def main() -> None:
     # First-run skill auto-install (silent, idempotent, never blocks).
     maybe_install_skill_silently()
 
+    # 'upgrade' positional sentinel pre-parsed before argparse — safe because CLI has no other positional args.
+    if len(sys.argv) > 1 and sys.argv[1] == "upgrade":
+        upgrade_self()
+
     args = parse_args()
+
+    if args.upgrade:
+        upgrade_self()
 
     if args.list_models:
         print_models_table()
@@ -269,10 +294,28 @@ def main() -> None:
 
     extra = merge_aspect_into_extra(extra, args.aspect)
 
+    if args.mask and not args.input_image:
+        sys.exit("ERROR: --mask requires --input-image.")
+
     client = OpenAI(api_key=api_key, max_retries=2)
 
     try:
-        response = client.images.generate(model=args.model, prompt=augmented_prompt, **extra)
+        if args.input_image:
+            image_path = Path(args.input_image)
+            if not image_path.exists():
+                sys.exit(f"ERROR: --input-image not found: {image_path}")
+            edit_kwargs: dict = {"image": image_path}
+            if args.mask:
+                mask_path = Path(args.mask)
+                if not mask_path.exists():
+                    sys.exit(f"ERROR: --mask not found: {mask_path}")
+                edit_kwargs["mask"] = mask_path
+            for reserved in edit_kwargs:
+                if reserved in extra:
+                    sys.exit(f"ERROR: --extra must not set '{reserved}' when using --input-image; use the flag instead.")
+            response = client.images.edit(model=args.model, prompt=augmented_prompt, **edit_kwargs, **extra)
+        else:
+            response = client.images.generate(model=args.model, prompt=augmented_prompt, **extra)
     except Exception as e:
         sys.exit(f"ERROR: API call failed: {e}")
 

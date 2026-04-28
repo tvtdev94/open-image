@@ -1,9 +1,11 @@
 """Tests for open-image CLI (gen.py). Pytest, no OpenAI API calls."""
 
 import argparse
+import base64
 import io
 import sys
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -294,3 +296,239 @@ def test_aspect_flags_are_mutually_exclusive(monkeypatch):
     with pytest.raises(SystemExit) as exc:
         gen.parse_args()
     assert exc.value.code != 0
+
+
+# ---------- Skill template content (regression guard) ----------
+
+def test_skill_template_includes_new_v060_sections():
+    """SKILL.md must advertise --input-image edit endpoint and self-upgrade workflow.
+
+    Loads open_image_skill.py from this repo directly, so a stale globally-installed
+    open-image (shadowed via the .pth bootstrap pre-load) cannot mask a regression.
+    """
+    import importlib.util
+    skill_path = Path(__file__).parent / "open_image_skill.py"
+    spec = importlib.util.spec_from_file_location("_local_open_image_skill", skill_path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    md = module.SKILL_MD_TEMPLATE
+    assert "## Image edit" in md
+    assert "## Self-upgrade" in md
+    assert "--input-image" in md
+    assert "open-image upgrade" in md
+
+
+# ---------- --input-image / --mask (image edit endpoint) ----------
+
+def _fake_image_response() -> MagicMock:
+    item = MagicMock()
+    item.b64_json = base64.b64encode(b"PNG").decode()
+    item.url = None
+    response = MagicMock()
+    response.data = [item]
+    return response
+
+
+@patch("gen.OpenAI")
+def test_input_image_routes_to_edit_endpoint(mock_openai_cls, tmp_path, monkeypatch, fake_home):
+    img = tmp_path / "in.png"
+    img.write_bytes(b"\x89PNG\r\n\x1a\n")
+    out_dir = tmp_path / "out"
+    monkeypatch.setattr(sys, "argv", [
+        "gen.py", "--input-image", str(img), "--prompt", "add hat",
+        "--out-dir", str(out_dir),
+    ])
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    mock_client = MagicMock()
+    mock_openai_cls.return_value = mock_client
+    mock_client.images.edit.return_value = _fake_image_response()
+    gen.main()
+    mock_client.images.edit.assert_called_once()
+    mock_client.images.generate.assert_not_called()
+
+
+@patch("gen.OpenAI")
+def test_mask_passed_to_edit_when_provided(mock_openai_cls, tmp_path, monkeypatch, fake_home):
+    img = tmp_path / "in.png"
+    mask = tmp_path / "m.png"
+    img.write_bytes(b"\x89PNG\r\n\x1a\n")
+    mask.write_bytes(b"\x89PNG\r\n\x1a\n")
+    out_dir = tmp_path / "out"
+    monkeypatch.setattr(sys, "argv", [
+        "gen.py", "--input-image", str(img), "--mask", str(mask),
+        "--prompt", "fill", "--out-dir", str(out_dir),
+    ])
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    mock_client = MagicMock()
+    mock_openai_cls.return_value = mock_client
+    mock_client.images.edit.return_value = _fake_image_response()
+    gen.main()
+    kwargs = mock_client.images.edit.call_args.kwargs
+    assert kwargs["mask"] == mask
+    assert kwargs["image"] == img
+
+
+@patch("gen.OpenAI")
+def test_input_image_with_style_uses_augmented_prompt(mock_openai_cls, tmp_path, monkeypatch, fake_home):
+    img = tmp_path / "in.png"
+    img.write_bytes(b"\x89PNG\r\n\x1a\n")
+    out_dir = tmp_path / "out"
+    monkeypatch.setattr(sys, "argv", [
+        "gen.py", "--input-image", str(img), "--style", "cyberpunk",
+        "--prompt", "city street", "--out-dir", str(out_dir),
+    ])
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    mock_client = MagicMock()
+    mock_openai_cls.return_value = mock_client
+    mock_client.images.edit.return_value = _fake_image_response()
+    gen.main()
+    kwargs = mock_client.images.edit.call_args.kwargs
+    assert kwargs["prompt"].startswith("city street, ")
+    assert "cyberpunk" in kwargs["prompt"]
+
+
+@patch("gen.OpenAI")
+def test_input_image_with_aspect_passes_size_to_edit(mock_openai_cls, tmp_path, monkeypatch, fake_home):
+    img = tmp_path / "in.png"
+    img.write_bytes(b"\x89PNG\r\n\x1a\n")
+    out_dir = tmp_path / "out"
+    monkeypatch.setattr(sys, "argv", [
+        "gen.py", "--input-image", str(img), "--portrait",
+        "--prompt", "edit", "--out-dir", str(out_dir),
+    ])
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    mock_client = MagicMock()
+    mock_openai_cls.return_value = mock_client
+    mock_client.images.edit.return_value = _fake_image_response()
+    gen.main()
+    kwargs = mock_client.images.edit.call_args.kwargs
+    assert kwargs["size"] == "1024x1792"
+
+
+def test_mask_without_input_image_errors(tmp_path, monkeypatch, fake_home):
+    mask = tmp_path / "m.png"
+    mask.write_bytes(b"\x89PNG\r\n\x1a\n")
+    monkeypatch.setattr(sys, "argv", [
+        "gen.py", "--mask", str(mask), "--prompt", "x",
+    ])
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    with pytest.raises(SystemExit) as exc:
+        gen.main()
+    assert "requires --input-image" in str(exc.value)
+
+
+def test_input_image_path_not_found_errors_clearly(tmp_path, monkeypatch, fake_home):
+    missing = tmp_path / "nope.png"
+    monkeypatch.setattr(sys, "argv", [
+        "gen.py", "--input-image", str(missing), "--prompt", "x",
+    ])
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    with pytest.raises(SystemExit) as exc:
+        gen.main()
+    assert str(missing) in str(exc.value)
+
+
+def test_mask_path_not_found_errors_clearly(tmp_path, monkeypatch, fake_home):
+    img = tmp_path / "cat.png"
+    img.write_bytes(b"\x89PNG\r\n\x1a\n")
+    missing_mask = tmp_path / "missing-mask.png"
+    monkeypatch.setattr(sys, "argv", [
+        "gen.py", "--input-image", str(img), "--mask", str(missing_mask), "--prompt", "x",
+    ])
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    with pytest.raises(SystemExit) as exc:
+        gen.main()
+    assert str(missing_mask) in str(exc.value)
+
+
+# ---------- --upgrade flag + 'upgrade' subcommand ----------
+
+@patch("gen.subprocess.call")
+def test_upgrade_flag_invokes_pip_install(mock_call, monkeypatch, fake_home):
+    mock_call.return_value = 0
+    monkeypatch.setattr(sys, "argv", ["gen.py", "--upgrade"])
+    with pytest.raises(SystemExit) as exc:
+        gen.main()
+    assert exc.value.code == 0
+    mock_call.assert_called_once_with(
+        [sys.executable, "-m", "pip", "install", "--upgrade", "open-image"]
+    )
+
+
+@patch("gen.subprocess.call")
+def test_upgrade_subcommand_invokes_pip_install(mock_call, monkeypatch, fake_home):
+    mock_call.return_value = 0
+    monkeypatch.setattr(sys, "argv", ["gen.py", "upgrade"])
+    with pytest.raises(SystemExit) as exc:
+        gen.main()
+    assert exc.value.code == 0
+    mock_call.assert_called_once_with(
+        [sys.executable, "-m", "pip", "install", "--upgrade", "open-image"]
+    )
+
+
+@patch("gen.subprocess.call")
+def test_upgrade_detects_pipx_install(mock_call, monkeypatch, fake_home, tmp_path):
+    mock_call.return_value = 0
+    pipx_python = tmp_path / "pipx" / "venvs" / "open-image" / "bin" / "python"
+    pipx_python.parent.mkdir(parents=True)
+    pipx_python.touch()
+    monkeypatch.setattr(sys, "executable", str(pipx_python))
+    monkeypatch.setattr(sys, "argv", ["gen.py", "--upgrade"])
+    with pytest.raises(SystemExit):
+        gen.main()
+    mock_call.assert_called_once_with(["pipx", "upgrade", "open-image"])
+
+
+@patch("gen.subprocess.call")
+def test_upgrade_propagates_exit_code(mock_call, monkeypatch, fake_home):
+    mock_call.return_value = 2
+    monkeypatch.setattr(sys, "argv", ["gen.py", "--upgrade"])
+    with pytest.raises(SystemExit) as exc:
+        gen.main()
+    assert exc.value.code == 2
+
+
+@patch("gen.subprocess.call")
+def test_upgrade_pipx_substring_false_positive_falls_back_to_pip(mock_call, monkeypatch, fake_home, tmp_path):
+    """Path containing 'pipx' / 'open-image' as substrings of dir names (not exact path components)
+    must NOT trigger pipx detection — substring match would falsely route to pipx upgrade."""
+    mock_call.return_value = 0
+    fake = tmp_path / "my-pipx-clone" / "open-image-fork" / "venv" / "bin" / "python"
+    fake.parent.mkdir(parents=True)
+    fake.touch()
+    monkeypatch.setattr(sys, "executable", str(fake))
+    monkeypatch.setattr(sys, "argv", ["gen.py", "--upgrade"])
+    with pytest.raises(SystemExit):
+        gen.main()
+    assert mock_call.call_args[0][0][:3] == [str(fake), "-m", "pip"]
+
+
+def test_input_image_rejects_extra_image_collision(tmp_path, monkeypatch, fake_home):
+    img = tmp_path / "cat.png"
+    img.write_bytes(b"\x89PNG\r\n\x1a\n")
+    monkeypatch.setattr(sys, "argv", [
+        "gen.py", "--input-image", str(img), "--prompt", "x",
+        "--extra", '{"image":"oops.png"}',
+    ])
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    with pytest.raises(SystemExit) as exc:
+        gen.main()
+    msg = str(exc.value)
+    assert "image" in msg
+    assert "--input-image" in msg
+
+
+def test_input_image_rejects_extra_mask_collision(tmp_path, monkeypatch, fake_home):
+    img = tmp_path / "cat.png"
+    mask = tmp_path / "m.png"
+    img.write_bytes(b"\x89PNG\r\n\x1a\n")
+    mask.write_bytes(b"\x89PNG\r\n\x1a\n")
+    monkeypatch.setattr(sys, "argv", [
+        "gen.py", "--input-image", str(img), "--mask", str(mask), "--prompt", "x",
+        "--extra", '{"mask":"oops.png"}',
+    ])
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    with pytest.raises(SystemExit) as exc:
+        gen.main()
+    assert "mask" in str(exc.value)

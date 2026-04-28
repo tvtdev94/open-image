@@ -3,6 +3,24 @@
 All notable changes to `open-image` are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versions follow [SemVer](https://semver.org/).
 
+## [0.6.0] — 2026-04-28
+
+### Added
+- `--input-image PATH` flag — routes to OpenAI's `images.edit` endpoint for image-to-image generation. All existing flags (`--style`, aspect shortcuts, `--extra`, `--name`, `--keep`) work identically with the edit endpoint.
+- `--mask PATH` flag — optional mask for inpainting (only valid with `--input-image`). Standalone `--mask` exits with a clear error.
+- `--upgrade` flag and `open-image upgrade` subcommand — self-upgrade via `pipx upgrade open-image` (when installed via pipx) or `pip install --upgrade open-image` (otherwise). Auto-detects environment from `sys.executable`. Exit code propagates from the underlying tool.
+- 13 new pytest cases covering edit endpoint routing, mask handling, file existence validation, `--style` + edit composition, aspect → `size` forwarding, pipx/pip detection (incl. substring false-positive guard), exit code propagation, `--extra` keyword collision rejection, and SKILL.md content regression.
+
+### Changed
+- Filename slug still derives from the **original** prompt — even when `--input-image` is used, the output filename never includes the input image filename or the style-augmented prompt.
+- Claude Code skill template (`SKILL.md`) gains `## Image edit (image-to-image and inpainting)` and `## Self-upgrade` sections, plus edit + upgrade examples in the Quick reference. Auto-syncs on next Python startup after upgrade.
+
+### Notes
+- `gpt-image-2` may not support the edit endpoint yet — if the API errors, pass `--model gpt-image-1`.
+- PEP 668 (externally-managed env) errors surface verbatim from pip — switch to pipx or a venv if encountered. The CLI does not auto-bypass with `--break-system-packages`.
+- pipx detection uses `Path.parts` (path components) instead of substring match — avoids false positives on project paths that happen to contain `pipx` / `open-image` as part of a directory name.
+- `--extra` JSON containing `image` or `mask` keys is rejected pre-call when `--input-image` is set, with a clear error pointing to the conflicting flag (instead of the previously misleading "API call failed: got multiple values for keyword argument" message).
+
 ## [0.5.0] — 2026-04-27
 
 ### Added

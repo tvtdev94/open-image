@@ -99,6 +99,25 @@ open-image --list-styles
 
 ---
 
+### Image edit + inpainting
+
+Pass `--input-image` to route to OpenAI's `images.edit` endpoint instead of `images.generate`. All other flags (`--style`, aspect shortcuts, `--extra`, `--name`, `--keep`) work identically. Add `--mask` for inpainting — the mask's transparent pixels mark the regions to regenerate:
+
+```bash
+# Image-to-image (edit whole image, no mask)
+open-image --input-image cat.png --prompt "give the cat a top hat"
+
+# Inpainting (only transparent regions in mask are changed)
+open-image --input-image room.png --mask window-hole.png --prompt "a sunny garden visible through the window"
+
+# Combine with style + aspect — every existing flag still works
+open-image --input-image street.png --style cyberpunk --portrait --prompt "neon-soaked rain"
+```
+
+`--mask` without `--input-image` is rejected (mask is meaningless on its own). Filename slug always derives from the prompt — never from the input image filename. Note: not every model supports edit yet — if you hit an API error, try `--model gpt-image-1`.
+
+---
+
 ### `--extra` escape hatch
 
 <p align="center">
@@ -145,6 +164,15 @@ cd open-image
 pip install -e .
 ```
 
+### Upgrade later
+
+```bash
+open-image upgrade        # subcommand form
+open-image --upgrade      # equivalent flag form
+```
+
+Auto-detects pipx vs pip from `sys.executable` and runs the right upgrade command. Exit code propagates from the underlying tool.
+
 ---
 
 ## Setup
@@ -168,18 +196,21 @@ open-image --api-key sk-... --prompt "..."
 | `--prompt` | — | Inline prompt text |
 | `--prompt-file` | — | Path to a file containing the prompt |
 | `--model` | `gpt-image-2` | Any OpenAI image model (`gpt-image-2`, `gpt-image-1`, `dall-e-3`, `dall-e-2`, …) |
-| `--extra` | `{}` | JSON object forwarded to `images.generate` |
+| `--extra` | `{}` | JSON object forwarded to `images.generate` / `images.edit` |
 | `--out-dir` | `./output` | Where to save PNGs (auto-created) |
 | `--api-key` | `$OPENAI_API_KEY` | Override via flag if not in env |
 | `--keep` | `50` | Keep only N newest PNGs in `--out-dir` after save; `0` disables pruning |
 | `--name` | auto-derived from prompt | Custom slug for output filename (kebab-case, ASCII) |
 | `--style` | — | Append a curated prompt fragment (one of 8 — run `--list-styles`) |
+| `--input-image` | — | Path to an existing PNG. Routes to `images.edit` for image-to-image / inpainting |
+| `--mask` | — | Optional mask PNG for inpainting (requires `--input-image`) |
 | `--list-styles` | — | List known styles with full fragments, then exit |
 | `--portrait` | — | Shortcut for `--extra '{"size":"1024x1792"}'` (mutually exclusive with `--landscape`/`--square`) |
 | `--landscape` | — | Shortcut for `--extra '{"size":"1792x1024"}'` |
 | `--square` | — | Shortcut for `--extra '{"size":"1024x1024"}'` |
 | `--list-models` | — | List known OpenAI image models with notes, then exit |
 | `--install-skill` | — | Re-install Claude Code skill at `~/.claude/skills/open-image/` (overwrites) |
+| `--upgrade` | — | Upgrade to latest PyPI release (auto-detects pipx vs pip). Equivalent: `open-image upgrade` subcommand |
 
 ---
 

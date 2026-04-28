@@ -13,4 +13,6 @@ build/
 
 # Test artifacts
 .pytest_cache/
+.coverage
+htmlcov/
 .claude/
